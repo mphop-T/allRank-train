@@ -1,0 +1,49 @@
+{
+  "model": {
+    "fc_model": {
+      "sizes": [512, 1024, 2048, 1024, 512],
+      "input_norm": true,
+      "activation": "ReLU",
+      "dropout": 0.3
+    },
+    "transformer": null,
+    "post_model": {
+      "output_activation": null,
+      "d_output": 1
+    }
+  },
+  "data": {
+    "path": "/allrank/athletes_men_data_combined",
+    "validation_ds_role": "vali",
+    "num_workers": 12,
+    "batch_size": 256,
+    "slate_length": 10
+  },
+  "optimizer": {
+    "name": "Adam",
+    "args": { "lr": 0.001 }
+  },
+"lr_scheduler": {
+  "name": "ReduceLROnPlateau",
+  "args": {
+    "mode": "max",
+    "factor": 0.5,
+    "patience": 5
+  }
+},
+  "training": {
+    "epochs": 40,
+    "early_stopping_patience": 20,
+    "gradient_clipping_norm": null
+  },
+  "metrics": ["ndcg_5", "ndcg_8"],
+  "loss": {
+    "name": "listNet",
+    "args": {}
+  },
+  "val_metric": "ndcg_5",
+  "detect_anomaly": true,
+  "expected_metrics": {
+    "val": { "ndcg_5": 0.4 }
+  }
+}
