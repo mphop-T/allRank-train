@@ -1,20 +1,18 @@
-ARG arch_version
+# changed the file to make it work with the dependencies since project has older versions
+FROM python:3.9-slim
 
-FROM python:3.10 as base
-
-MAINTAINER MLR <allrank@allegro.pl>
-
-RUN mkdir /allrank
-COPY requirements.txt setup.py Makefile README.md /allrank/
-
-RUN make -C /allrank install-reqs
+LABEL maintainer="MLR <allrank@allegro.pl>"
 
 WORKDIR /allrank
 
-FROM base as CPU
-RUN python3 -m pip  install torchvision==0.14.1 torch==1.13.1  --extra-index-url https://download.pytorch.org/whl/cpu
+RUN apt-get update && apt-get install -y gcc g++ && rm -rf /var/lib/apt/lists/*
 
-FROM base as GPU
-RUN python3 -m pip  install torchvision==0.14.1 torch==1.13.1  
+COPY requirements.txt setup.py Makefile README.md ./
 
-FROM ${arch_version} as FINAL
+# Use pip to install everything, skip setup.py
+RUN pip install --upgrade pip
+
+# Install all dependencies including your package as editable
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install torch==1.13.1 torchvision==0.14.1 --extra-index-url https://download.pytorch.org/whl/cpu
+RUN pip install -e .  # This replaces python setup.py install

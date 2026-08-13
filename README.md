@@ -21,8 +21,10 @@ This is **stage 1** of a three-repo pipeline:
 
 ## Requirements
 
-- Base image: `python:3.9` (pulled automatically from Docker Hub during `docker build`; not stored in this repo)
-- Additional dependencies layered on top by the Dockerfile: `torch==1.13.1`, `torchvision==0.14.1` (CPU or GPU build, selected via the `arch_version` build-arg), plus allRank's own Python dependencies (`requirements.txt`) are installed by the original, unmodified Dockerfile — no packages were added or changed for this project
+- Docker
+- Base image: `python:3.9-slim` (pulled automatically from Docker Hub during `docker build`; not stored in this repo)
+- `gcc` and `g++`, installed via `apt-get` in the Dockerfile (needed to build some Python dependencies from source; not included in the slim base image by default)
+- Dependencies: `torch==1.13.1`, `torchvision==0.14.1` (CPU build), plus allRank's own Python dependencies from `requirements.txt`
 
 ## Usage
 
@@ -55,11 +57,20 @@ Training and validation LibSVM files (`train.txt` / `vali.txt` per gender folder
 
 This repo is a fork of [allegro/allRank](https://github.com/allegro/allRank) (Pobrotyn et al., 2020, [arXiv:2005.10084](https://arxiv.org/abs/2005.10084)), used under its Apache 2.0 license.
 
-*Note for completion: list the specific changes you made — e.g. new/edited config files for this dataset, any changes to data loading, changes to hyperparameters from the allRank defaults, etc.*
+allRank's own source code (the `allrank` Python package) was not modified — the model/training logic is used as-is via its standard `config.json` mechanism. The **Dockerfile was modified** to get a working build, since the original failed with the project's pinned dependency versions:
+
+- Base image changed from `python:3.10` to `python:3.9-slim`.
+- Added `apt-get install gcc g++` (needed to build some dependencies from source; not present in the slim base image).
+- Removed the original CPU/GPU multi-stage build (`arch_version` build-arg) — this fork always installs the CPU build of PyTorch.
+- Replaced the original `RUN make -C /allrank install-reqs` step (which ran `pip install -r requirements.txt` followed by `python setup.py install`) with explicit `pip install --upgrade pip`, `pip install --no-cache-dir -r requirements.txt`, and `pip install -e .` (editable install).
+- `MAINTAINER` instruction (deprecated) replaced with `LABEL maintainer=...`.
+
+Beyond the Dockerfile, the only other additions are project-specific configuration files and shell scripts (listed above under Usage) that point allRank at this project's data and select the model/gender combination to train.
 
 ## License
 
 Apache License 2.0, inherited from upstream allRank. See `LICENSE`.
+
 
 ---
 
