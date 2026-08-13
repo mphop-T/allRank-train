@@ -1,6 +1,67 @@
-# allRank : Learning to Rank in PyTorch
+# allrank-train
 
 ## About
+
+Docker-based fork of [allegro/allRank](https://github.com/allegro/allRank), adapted to train and validate ListNet and ListMLE listwise learning-to-rank models for ranking senior men's and women's 100m sprint athletes using pre-event data.
+
+This is **stage 1** of a three-repo pipeline:
+
+1. **allrank-train** (this repo) — trains and validates ListNet and ListMLE via Docker, producing a `model.pkl` checkpoint per gender for each model in the output directory.
+
+2. [**allrank-infer**](https://github.com/mphop-T/allrank-infer) — loads `model.pkl` from this repo and generates ListNet/ListMLE prediction scores for the men's and women's test sets. 
+
+3. [**athletes-ranking**](https://github.com/mphop-T/athletes-ranking) — data preprocessing, LambdaRank and Random Forest training/evaluation, and the results and significance testing that combine outputs from all three repos.
+
+## What this repo does
+
+- Trains ListNet and ListMLE separately for men's and women's senior 100m sprint data, using allRank's listwise ranking objectives.
+- Input: LibSVM-formatted ranking files, organized into gender-specific folders ( `athletes_women_data_combined/`, `athletes_men_data_combined/`), each containing `train.txt` and `vali.txt` — renamed from their original exported filenames to match allRank's expected convention (training data must be named `train.txt`; the validation filename is set in `config.json`). Each row contains a query ID (`qid`, one per athletic event), a relevance label, and indexed feature values.
+- Relevance labels are derived as `Max_Rank − Normalized_Place + 1`, so the athlete with the best (lowest) finishing position in an event receives the highest relevance score. `Position`, `Normalized_Place`, and `Mark` are excluded from the feature set to prevent data leakage.
+- Output: trained model checkpoints (`model.pkl`), one per gender per model, consumed downstream by `allrank-infer`.
+
+## Requirements
+
+- Base image: `python:3.9` (pulled automatically from Docker Hub during `docker build`; not stored in this repo)
+- Additional dependencies layered on top by the Dockerfile: `torch==1.13.1`, `torchvision==0.14.1` (CPU or GPU build, selected via the `arch_version` build-arg), plus allRank's own Python dependencies (`requirements.txt`) are installed by the original, unmodified Dockerfile — no packages were added or changed for this project
+
+## Usage
+
+The Docker image only needs to be built once (or whenever the Dockerfile/dependencies change):
+
+```
+docker build --build-arg arch_version=cpu -t allrank-train .
+```
+Each training run is then launched from that already-built image, via a shell script that calls allRank's training entry point:
+
+```
+python allrank/main.py --config_file_name allrank/config.json --run_id <experiment_name> --job_dir <output_path>
+```
+- `output_path` contains output directory name which has the `model.pkl` file
+
+The model type (ListNet vs. ListMLE), loss function, and other hyperparameters aren't CLI flags — they're set inside a config file, and the config also points at the correct gender folder's `train.txt`/`vali.txt`. A separate config file and shell script were used for each model/gender combination:
+
+| Model | Gender | Config file | Training/testing script | Output directory |
+|---|---|---|---|---|
+| ListMLE | Men | `athletes_listmle_config_listmle_male_combined.json` | `run_listmle_male_combined_in_docker.sh` | `listmle-male-combined-test-data` |
+| ListMLE | Women | `athletes_listmle_config_listmle_women_combined.json` | `run_listmle_women_combined_in_docker.sh` | `listmle-women-combined-test-data` |
+| ListNet | Men | `athletes_listnet_men_combined_config.json` | `run_listnet_men_combined_in_docker.sh` | `listnet-men-combined-test-data` |
+| ListNet | Women | `athletes_listnet_women_combined_config.json` | `run_listnet_women_combined_in_docker.sh` | `listnet-women-combined-test-data` |
+
+## Data
+
+Training and validation LibSVM files (`train.txt` / `vali.txt` per gender folder) are produced by the data-preprocessing notebook in [athletes-ranking](https://github.com//mphop-T/athletes-ranking). See that repo for the full data cleaning, feature engineering, and leakage-prevention steps that generate these files.
+
+## Modifications from upstream
+
+This repo is a fork of [allegro/allRank](https://github.com/allegro/allRank) (Pobrotyn et al., 2020, [arXiv:2005.10084](https://arxiv.org/abs/2005.10084)), used under its Apache 2.0 license.
+
+*Note for completion: list the specific changes you made — e.g. new/edited config files for this dataset, any changes to data loading, changes to hyperparameters from the allRank defaults, etc.*
+
+## License
+
+Apache License 2.0, inherited from upstream allRank. See `LICENSE`.
+
+---
 
 allRank is a PyTorch-based framework for training neural Learning-to-Rank (LTR) models, featuring implementations of:
 * common pointwise, pairwise and listwise loss functions
